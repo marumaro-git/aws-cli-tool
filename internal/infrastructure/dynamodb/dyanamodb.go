@@ -59,6 +59,8 @@ func (d *DynamoDBClient) PutItem(ctx context.Context) (string, error) {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(TableName),
 		Item:      itemMap,
+		// NOTE: すでに存在するIDの場合は上書きせずエラーになる
+		ConditionExpression: aws.String("attribute_not_exists(ID)"),
 	}
 
 	_, err = d.client.PutItem(ctx, input)
