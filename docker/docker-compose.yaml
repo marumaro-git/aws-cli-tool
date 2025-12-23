@@ -1,0 +1,13 @@
+name: aws-cli-tool  # プロジェクト名を明示的に設定
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs,dynamodb
+      - SQS_ENDPOINT_STRATEGY=off
+      - AWS_DEFAULT_REGION=ap-northeast-1
+    volumes:
+      - "./init:/etc/localstack/init/ready.d"
