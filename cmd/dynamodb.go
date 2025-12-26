@@ -28,6 +28,9 @@ to quickly create a Cobra application.`,
 		dynamodbUseCase.CheckTTLProcess(cmd.Context())
 		fmt.Println("✅ DynamoDB service demo completed.")
 
+		fmt.Println("🚀 Running Batch Write Items demo...")
+		dynamodbUseCase.BatchWriteItems(cmd.Context())
+		fmt.Println("✅ Batch Write Items demo completed.")
 	},
 }
 

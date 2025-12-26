@@ -11,6 +11,8 @@ import (
 type DynamoDBRepository interface {
 	PutItem(ctx context.Context) (string, error)
 	GetItemByID(ctx context.Context, id string) (*model.Item, error)
+	BatchWriteItems(ctx context.Context) error
+	GetList(ctx context.Context, city string) ([]model.Item, error)
 }
 
 type DynamoDBUseCase struct {
@@ -57,4 +59,18 @@ func (u *DynamoDBUseCase) CheckTTLProcess(ctx context.Context) {
 	fmt.Println("Check complete.")
 }
 
+func (u *DynamoDBUseCase) BatchWriteItems(ctx context.Context) {
+	fmt.Println("Batch writing items...")
+	err := u.repo.BatchWriteItems(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Batch write complete.")
 
+	fmt.Println("Getting list of items...")
+	items, err := u.repo.GetList(ctx, "Batch City")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Got %d items:\n", len(items))
+}

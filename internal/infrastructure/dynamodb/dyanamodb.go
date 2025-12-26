@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -104,4 +105,91 @@ func (d *DynamoDBClient) GetItemByID(ctx context.Context, id string) (*model.Ite
 	}
 
 	return &modelItem, nil
+}
+
+func (d *DynamoDBClient) BatchWriteItems(ctx context.Context) error {
+
+	items := []Item{
+		{
+			ID:        uuid.New().String(),
+			Name:      "Sample Name 1",
+			City:      "Batch City",
+			CreatedAt: time.Now().Format(time.RFC3339),
+			ExpiresAt: time.Now().Add(60 * time.Minute).Unix(),
+		},
+		{
+			ID:        uuid.New().String(),
+			Name:      "Sample Name 2",
+			City:      "Batch City",
+			CreatedAt: time.Now().Format(time.RFC3339),
+			ExpiresAt: time.Now().Add(60 * time.Minute).Unix(),
+		},
+	}
+
+	var writeRequests []types.WriteRequest
+
+	for _, item := range items {
+		itemMap, err := attributevalue.MarshalMap(item)
+		if err != nil {
+			return err
+		}
+
+		writeRequests = append(writeRequests, types.WriteRequest{
+			PutRequest: &types.PutRequest{
+				Item: itemMap,
+			},
+		})
+	}
+
+	input := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			TableName: writeRequests,
+		},
+	}
+
+	output, err := d.client.BatchWriteItem(ctx, input)
+	if err != nil {
+		return err
+	}
+	if len(output.UnprocessedItems) > 0 {
+		return fmt.Errorf("unprocessed items found: %v", output.UnprocessedItems)
+	}
+	return nil
+}
+
+func (d *DynamoDBClient) GetList(ctx context.Context, city string) ([]model.Item, error) {
+	paginator := dynamodb.NewQueryPaginator(d.client, &dynamodb.QueryInput{
+		TableName: aws.String(TableName),
+		// 検索条件
+		KeyConditionExpression: aws.String("City = :city"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":city": &types.AttributeValueMemberS{Value: city},
+		},
+		IndexName: aws.String("City-CreatedAt-index"),
+		Limit:     aws.Int32(4),
+		// 最新順に取得
+		ScanIndexForward: aws.Bool(false),
+	})
+
+	var items []model.Item
+
+	for paginator.HasMorePages() {
+		fmt.Println("Fetching next page...")
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range output.Items {
+			var modelItem model.Item
+			err := attributevalue.UnmarshalMap(item, &modelItem)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, modelItem)
+		}
+	}
+
+	// DynamoDBからアイテムを取得するロジックを実装
+	return items, nil
 }
