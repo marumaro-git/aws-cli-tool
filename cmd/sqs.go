@@ -21,7 +21,7 @@ This command will run the SQS service demo which receives messages from 'recieve
 and sends a test message to 'send-queue'.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Running SQS service demo...")
-		sqsClient := sqs.NewSQSClient()
+		sqsClient := sqs.NewSQSClient(cmd.Context())
 		sqsUseCase := usecase.NewMessageUseCase(sqsClient)
 		sqsUseCase.TransferMessages(cmd.Context())
 		fmt.Println("✅ SQS service demo completed.")

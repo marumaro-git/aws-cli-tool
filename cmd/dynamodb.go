@@ -23,7 +23,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Running DynamoDB service demo...")
-		dynamodbClient := dynamodb.NewDynamoDBClient()
+		dynamodbClient := dynamodb.NewDynamoDBClient(cmd.Context())
 		dynamodbUseCase := usecase.NewDynamoDBUseCase(dynamodbClient)
 		dynamodbUseCase.CheckTTLProcess(cmd.Context())
 		fmt.Println("✅ DynamoDB service demo completed.")

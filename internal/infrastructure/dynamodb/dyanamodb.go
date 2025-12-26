@@ -27,8 +27,8 @@ type Item struct {
 
 const TableName = "SampleTable"
 
-func NewDynamoDBClient() *DynamoDBClient {
-	cfg := config.GetLocalStackConfig()
+func NewDynamoDBClient(ctx context.Context) *DynamoDBClient {
+	cfg := config.GetLocalStackConfig(ctx)
 	client := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
 		o.BaseEndpoint = aws.String(config.LocalStackEndpoint)
 	})

@@ -36,8 +36,8 @@ var (
 	baseQueueURL = fmt.Sprintf("%s/000000000000", config.LocalStackEndpoint)
 )
 
-func NewSQSClient() *SQSClient {
-	cfg := config.GetLocalStackConfig()
+func NewSQSClient(ctx context.Context) *SQSClient {
+	cfg := config.GetLocalStackConfig(ctx)
 	client := sqs.NewFromConfig(cfg, func(o *sqs.Options) {
 		o.BaseEndpoint = aws.String(config.LocalStackEndpoint)
 	})
