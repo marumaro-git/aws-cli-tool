@@ -15,12 +15,14 @@ import (
 var dynamodbCmd = &cobra.Command{
 	Use:   "dynamodb",
 	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Long: `Perform various DynamoDB operations using AWS SDK or dynamo library.
+		You can choose between 'sdk' and 'dynamo' subcommands to execute specific operations.`,
+}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+var sdkCmd = &cobra.Command{
+	Use:   "sdk",
+	Short: "DynamoDB SDK specific operations",
+	Long:  `Commands related to DynamoDB SDK operations.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Running DynamoDB service demo...")
 		dynamodbClient := dynamodb.NewDynamoDBClient(cmd.Context())
@@ -34,8 +36,20 @@ to quickly create a Cobra application.`,
 	},
 }
 
+var gureguCmd = &cobra.Command{
+	Use:   "guregu",
+	Short: "Dynamo guregu library specific operations",
+	Long:  `Commands related to Dynamo library operations.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("🚀 Running Dynamo guregu library demo...")
+		fmt.Println("✅ Batch Write Items demo completed.")
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(dynamodbCmd)
+	dynamodbCmd.AddCommand(sdkCmd)
+	dynamodbCmd.AddCommand(gureguCmd)
 
 	// Here you will define your flags and configuration settings.
 
