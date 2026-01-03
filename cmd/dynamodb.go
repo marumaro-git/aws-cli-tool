@@ -42,6 +42,14 @@ var gureguCmd = &cobra.Command{
 	Long:  `Commands related to Dynamo library operations.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🚀 Running Dynamo guregu library demo...")
+		dynamodbClient := dynamodb.NewExpressiveDynamoDBClient(cmd.Context())
+		tableClient := dynamodbClient.NewExpressiveTableClient()
+		dynamodbUseCase := usecase.NewDynamoDBExpressiveUseCase(tableClient)
+		dynamodbUseCase.CheckTTLProcess(cmd.Context())
+		fmt.Println("✅ Dynamo guregu library demo completed.")
+
+		fmt.Println("🚀 Running Batch Write Items demo...")
+		dynamodbUseCase.BatchWriteItems(cmd.Context())
 		fmt.Println("✅ Batch Write Items demo completed.")
 	},
 }
