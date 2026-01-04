@@ -4,11 +4,11 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/infrastructure/dynamodb"
 	"github.com/marumaro-git/aws-cli-tool/internal/pkg/customerror"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/logger"
 	"github.com/marumaro-git/aws-cli-tool/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -26,24 +26,28 @@ var sdkCmd = &cobra.Command{
 	Short: "DynamoDB SDK specific operations",
 	Long:  `Commands related to DynamoDB SDK operations.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 Running DynamoDB service demo...")
-		dynamodbClient := dynamodb.NewDynamoDBClient(cmd.Context())
-		dynamodbUseCase := usecase.NewDynamoDBUseCase(dynamodbClient)
-		dynamodbUseCase.CheckTTLProcess(cmd.Context())
-		fmt.Println("✅ DynamoDB service demo completed.")
 
-		fmt.Println("🚀 Running Batch Write Items demo...")
-		dynamodbUseCase.BatchWriteItems(cmd.Context())
-		fmt.Println("✅ Batch Write Items demo completed.")
+		ctx := cmd.Context()
+		dynamodbClient := dynamodb.NewDynamoDBClient(ctx)
+		logger := logger.NewSlogLogger()
+		useCase := usecase.NewDynamoDBUseCase(dynamodbClient, logger)
 
-		fmt.Println("🚀 Checking ItemNotFound error handling...")
-		err := dynamodbUseCase.ItemNotFound(cmd.Context())
+		logger.Info(ctx, "🚀 Running DynamoDB service demo...")
+		useCase.CheckTTLProcess(ctx)
+		logger.Info(ctx, "✅ DynamoDB service demo completed.")
+
+		logger.Info(ctx, "🚀 Running Batch Write Items demo...")
+		useCase.BatchWriteItems(ctx)
+		logger.Info(ctx, "✅ Batch Write Items demo completed.")
+
+		logger.Info(ctx, "🚀 Checking ItemNotFound error handling...")
+		err := useCase.ItemNotFound(ctx)
 		if err != nil {
 			errs := customerror.HandleError(err)
-			fmt.Printf("Handled Error - StatusCode: %d, Message: %s\n", errs.StatusCode, errs.Message)
+			logger.Error(ctx, err)
 			os.Exit(errs.StatusCode)
 		} else {
-			fmt.Println("❌ ItemNotFound error handling check completed successfully.")
+			logger.Info(ctx, "❌ ItemNotFound error handling check completed successfully.")
 		}
 	},
 }
@@ -53,16 +57,20 @@ var gureguCmd = &cobra.Command{
 	Short: "Dynamo guregu library specific operations",
 	Long:  `Commands related to Dynamo library operations.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 Running Dynamo guregu library demo...")
-		dynamodbClient := dynamodb.NewExpressiveDynamoDBClient(cmd.Context())
-		tableClient := dynamodbClient.NewExpressiveTableClient()
-		dynamodbUseCase := usecase.NewDynamoDBExpressiveUseCase(tableClient)
-		dynamodbUseCase.CheckTTLProcess(cmd.Context())
-		fmt.Println("✅ Dynamo guregu library demo completed.")
+		ctx := cmd.Context()
+		logger := logger.NewSlogLogger()
 
-		fmt.Println("🚀 Running Batch Write Items demo...")
-		dynamodbUseCase.BatchWriteItems(cmd.Context())
-		fmt.Println("✅ Batch Write Items demo completed.")
+		dynamodbClient := dynamodb.NewExpressiveDynamoDBClient(ctx)
+		tableClient := dynamodbClient.NewExpressiveTableClient()
+		dynamodbUseCase := usecase.NewDynamoDBExpressiveUseCase(tableClient, logger)
+
+		logger.Info(ctx, "🚀 Running Dynamo guregu library demo...")
+		dynamodbUseCase.CheckTTLProcess(ctx)
+		logger.Info(ctx, "✅ Dynamo guregu library demo completed.")
+
+		logger.Info(ctx, "🚀 Running Batch Write Items demo...")
+		dynamodbUseCase.BatchWriteItems(ctx)
+		logger.Info(ctx, "✅ Batch Write Items demo completed.")
 	},
 }
 

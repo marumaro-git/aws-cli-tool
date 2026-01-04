@@ -4,9 +4,8 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/marumaro-git/aws-cli-tool/internal/infrastructure/sqs"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/logger"
 	"github.com/marumaro-git/aws-cli-tool/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -20,11 +19,14 @@ var sqsCmd = &cobra.Command{
 This command will run the SQS service demo which receives messages from 'recieve-queue' 
 and sends a test message to 'send-queue'.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 Running SQS service demo...")
-		sqsClient := sqs.NewSQSClient(cmd.Context())
-		sqsUseCase := usecase.NewMessageUseCase(sqsClient)
-		sqsUseCase.TransferMessages(cmd.Context())
-		fmt.Println("✅ SQS service demo completed.")
+		ctx := cmd.Context()
+		logger := logger.NewSlogLogger()
+		sqsClient := sqs.NewSQSClient(ctx)
+		sqsUseCase := usecase.NewMessageUseCase(sqsClient, logger)
+
+		logger.Info(ctx, "🚀 Starting SQS service demo...")
+		sqsUseCase.TransferMessages(ctx)
+		logger.Info(ctx, "✅ SQS service demo completed.")
 	},
 }
 

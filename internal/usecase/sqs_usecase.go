@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/logger"
 )
 
 type SQSRepository interface {
@@ -15,41 +16,39 @@ type SQSRepository interface {
 
 type MessageUseCase struct {
 	repository SQSRepository
+	logger     logger.Logger
 }
 
-func NewMessageUseCase(repository SQSRepository) *MessageUseCase {
+func NewMessageUseCase(repository SQSRepository, logger logger.Logger) *MessageUseCase {
 	return &MessageUseCase{
 		repository: repository,
+		logger:     logger,
 	}
 }
 
 func (u *MessageUseCase) TransferMessages(ctx context.Context) {
-	fmt.Println("Transferring messages...")
-
-	fmt.Println("Receiving messages...")
 	messages, err := u.repository.ReceiveMessages(ctx)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Received %d messages.\n", len(messages))
+	u.logger.Info(ctx, fmt.Sprintf("Received %d messages.", len(messages)))
 
 	if len(messages) == 0 {
-		fmt.Println("No messages to transfer.")
+		u.logger.Info(ctx, "No messages to transfer.")
 		return
 	}
 
-	fmt.Println("Sending messages...")
+	u.logger.Info(ctx, "Sending messages...")
 	sendCount, err := u.repository.SendMessages(ctx, messages)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Messages sent: %d\n", *sendCount)
+	u.logger.Info(ctx, fmt.Sprintf("Messages sent: %d", *sendCount))
 
 	deleteCount, err := u.repository.DeleteMessages(ctx, messages)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Messages deleted: %d\n", *deleteCount)
+	u.logger.Info(ctx, fmt.Sprintf("Messages deleted: %d", *deleteCount))
 
-	fmt.Println("Message transfer complete.")
 }
