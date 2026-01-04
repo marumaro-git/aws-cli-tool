@@ -74,3 +74,12 @@ func (u *DynamoDBUseCase) BatchWriteItems(ctx context.Context) {
 	}
 	fmt.Printf("Got %d items:\n", len(items))
 }
+
+func (u *DynamoDBUseCase) ItemNotFound(ctx context.Context) error {
+	fmt.Println("Checking ItemNotFound error handling...")
+	_, err := u.repo.GetItemByID(ctx, "non-existent-id")
+	if err != nil {
+		return err
+	}
+	return nil
+}

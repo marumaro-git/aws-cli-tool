@@ -11,6 +11,8 @@ import (
 	"github.com/guregu/dynamo/v2"
 	"github.com/marumaro-git/aws-cli-tool/internal/config"
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/customerror"
+	"github.com/morikuni/failure"
 )
 
 type ExpressiveDynamoDBClient struct {
@@ -42,7 +44,7 @@ func (d *ExpressiveDynamoDBClient) NewExpressiveTableClient() *ExpressiveTableCl
 func (t *ExpressiveTableClient) PutItem(ctx context.Context) (string, error) {
 	jst, err := time.LoadLocation("Asia/Tokyo")
 	if err != nil {
-		return "", err
+		return "", failure.Wrap(err)
 	}
 	createdAt := time.Now().In(jst).Format(time.RFC3339)
 	item := Item{
@@ -54,7 +56,7 @@ func (t *ExpressiveTableClient) PutItem(ctx context.Context) (string, error) {
 	}
 	err = t.table.Put(item).If("attribute_not_exists(ID)").Run(ctx)
 	if err != nil {
-		return "", err
+		return "", failure.Wrap(err)
 	}
 	return item.ID, nil
 }
@@ -63,7 +65,11 @@ func (t *ExpressiveTableClient) GetItemByID(ctx context.Context, id string) (*mo
 	var item Item
 	err := t.table.Get("ID", id).One(ctx, &item)
 	if err != nil {
-		return nil, err
+		return nil, failure.Wrap(err)
+	}
+
+	if item.ID == "" {
+		return nil, failure.New(customerror.ItemNotFound, failure.Message("item not found"))
 	}
 
 	modelItem := model.Item{
@@ -97,14 +103,14 @@ func (t *ExpressiveTableClient) BatchWriteItems(ctx context.Context) error {
 	for i, item := range items {
 		itemsInterface[i] = item
 	}
-	
+
 	cnt, err := t.table.Batch().Write().Put(itemsInterface...).Run(ctx)
 	if err != nil {
-		return err
+		return failure.Wrap(err)
 	}
 
 	if cnt != len(items) {
-		return fmt.Errorf("not all items were written: expected %d, got %d", len(items), cnt)
+		return failure.Wrap(err, failure.Message(fmt.Sprintf("some items were not processed: %d", len(items)-cnt)))
 	}
 
 	return nil
@@ -115,7 +121,7 @@ func (t *ExpressiveTableClient) GetList(ctx context.Context, city string) ([]mod
 
 	err := t.table.Get("City", city).Index("City-CreatedAt-index").All(ctx, &items)
 	if err != nil {
-		return nil, err
+		return nil, failure.Wrap(err)
 	}
 
 	var modelItems []model.Item

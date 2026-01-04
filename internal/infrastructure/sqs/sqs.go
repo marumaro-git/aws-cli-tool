@@ -10,9 +10,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/google/uuid"
+	"github.com/morikuni/failure"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/config"
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/customerror"
 )
 
 type ReceiveMessage struct {
@@ -58,7 +60,7 @@ func (s *SQSClient) ReceiveMessages(ctx context.Context) ([]model.Message, error
 
 	receiveMessages, err := s.client.ReceiveMessage(receiveCtx, input)
 	if err != nil {
-		return nil, err
+		return nil, failure.Wrap(err)
 	}
 
 	var messages []model.Message
@@ -91,7 +93,7 @@ func (s *SQSClient) SendMessages(ctx context.Context, messages []model.Message) 
 	for i, message := range messages {
 		jsonData, err := json.Marshal(message)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal message: %v", err)
+			return nil, failure.Wrap(err, failure.Message("failed to marshal message to JSON"))
 		}
 
 		entries = append(entries, types.SendMessageBatchRequestEntry{
@@ -107,18 +109,14 @@ func (s *SQSClient) SendMessages(ctx context.Context, messages []model.Message) 
 
 	sendMessages, err := s.client.SendMessageBatch(sendCtx, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send messages: %v", err)
+		return nil, failure.Wrap(err, failure.Message("failed to send messages"))
 	}
 
 	if len(sendMessages.Failed) > 0 {
 		for _, failed := range sendMessages.Failed {
 			fmt.Printf("Failed to send message %s: %v\n", *failed.Id, failed.Message)
 		}
-		return nil, fmt.Errorf("some messages failed to send")
-	}
-
-	if len(sendMessages.Successful) != len(entries) {
-		return nil, fmt.Errorf("some messages failed to send")
+		return nil, failure.New(customerror.FailedSendMessage, failure.Message("some messages failed to send"))
 	}
 
 	return aws.Int(len(sendMessages.Successful)), nil
@@ -143,18 +141,14 @@ func (s *SQSClient) DeleteMessages(ctx context.Context, messages []model.Message
 
 	deleteMessages, err := s.client.DeleteMessageBatch(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete messages: %v", err)
+		return nil, failure.Wrap(err, failure.Message("failed to delete messages"))
 	}
 
 	if len(deleteMessages.Failed) > 0 {
 		for _, failed := range deleteMessages.Failed {
 			fmt.Printf("Failed to delete message %s: %v\n", *failed.Id, failed.Message)
 		}
-		return nil, fmt.Errorf("some messages failed to delete")
-	}
-
-	if len(messages) != len(deleteMessages.Successful) {
-		return nil, fmt.Errorf("some messages failed to delete")
+		return nil, failure.New(customerror.FailedSendMessage, failure.Message("some messages failed to delete"))
 	}
 
 	fmt.Printf("Successfully deleted %d messages\n", len(deleteMessages.Successful))

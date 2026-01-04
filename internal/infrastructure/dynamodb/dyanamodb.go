@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/marumaro-git/aws-cli-tool/internal/config"
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/customerror"
+	"github.com/morikuni/failure"
 )
 
 type DynamoDBClient struct {
@@ -41,7 +43,7 @@ func NewDynamoDBClient(ctx context.Context) *DynamoDBClient {
 func (d *DynamoDBClient) PutItem(ctx context.Context) (string, error) {
 	jst, err := time.LoadLocation("Asia/Tokyo")
 	if err != nil {
-		return "", err
+		return "", failure.Wrap(err)
 	}
 	createdAt := time.Now().In(jst).Format(time.RFC3339)
 	item := Item{
@@ -54,7 +56,7 @@ func (d *DynamoDBClient) PutItem(ctx context.Context) (string, error) {
 
 	itemMap, err := attributevalue.MarshalMap(item)
 	if err != nil {
-		return "", err
+		return "", failure.Wrap(err)
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -66,7 +68,7 @@ func (d *DynamoDBClient) PutItem(ctx context.Context) (string, error) {
 
 	_, err = d.client.PutItem(ctx, input)
 	if err != nil {
-		return "", err
+		return "", failure.Wrap(err)
 	}
 
 	return item.ID, nil
@@ -84,11 +86,11 @@ func (d *DynamoDBClient) GetItemByID(ctx context.Context, id string) (*model.Ite
 
 	result, err := d.client.GetItem(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, failure.Wrap(err)
 	}
 
 	if result.Item == nil {
-		return &model.Item{}, nil
+		return nil, failure.New(customerror.ItemNotFound, failure.Message("item not found"))
 	}
 
 	var item Item
@@ -131,7 +133,7 @@ func (d *DynamoDBClient) BatchWriteItems(ctx context.Context) error {
 	for _, item := range items {
 		itemMap, err := attributevalue.MarshalMap(item)
 		if err != nil {
-			return err
+			return failure.Wrap(err)
 		}
 
 		writeRequests = append(writeRequests, types.WriteRequest{
@@ -149,10 +151,10 @@ func (d *DynamoDBClient) BatchWriteItems(ctx context.Context) error {
 
 	output, err := d.client.BatchWriteItem(ctx, input)
 	if err != nil {
-		return err
+		return failure.Wrap(err)
 	}
 	if len(output.UnprocessedItems) > 0 {
-		return fmt.Errorf("unprocessed items found: %v", output.UnprocessedItems)
+		return failure.Wrap(err, failure.Message(fmt.Sprintf("some items were not processed: %d", len(output.UnprocessedItems))))
 	}
 	return nil
 }
@@ -177,14 +179,14 @@ func (d *DynamoDBClient) GetList(ctx context.Context, city string) ([]model.Item
 		fmt.Println("Fetching next page...")
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
-			return nil, err
+			return nil, failure.Wrap(err)
 		}
 
 		for _, item := range output.Items {
 			var modelItem model.Item
 			err := attributevalue.UnmarshalMap(item, &modelItem)
 			if err != nil {
-				return nil, err
+				return nil, failure.Wrap(err)
 			}
 			items = append(items, modelItem)
 		}

@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/infrastructure/dynamodb"
+	"github.com/marumaro-git/aws-cli-tool/internal/pkg/customerror"
 	"github.com/marumaro-git/aws-cli-tool/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +35,16 @@ var sdkCmd = &cobra.Command{
 		fmt.Println("🚀 Running Batch Write Items demo...")
 		dynamodbUseCase.BatchWriteItems(cmd.Context())
 		fmt.Println("✅ Batch Write Items demo completed.")
+
+		fmt.Println("🚀 Checking ItemNotFound error handling...")
+		err := dynamodbUseCase.ItemNotFound(cmd.Context())
+		if err != nil {
+			errs := customerror.HandleError(err)
+			fmt.Printf("Handled Error - StatusCode: %d, Message: %s\n", errs.StatusCode, errs.Message)
+			os.Exit(errs.StatusCode)
+		} else {
+			fmt.Println("❌ ItemNotFound error handling check completed successfully.")
+		}
 	},
 }
 
