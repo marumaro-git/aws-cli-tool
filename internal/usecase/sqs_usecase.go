@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
 	"github.com/marumaro-git/aws-cli-tool/internal/pkg/logger"
@@ -29,7 +30,8 @@ func NewMessageUseCase(repository SQSRepository, logger logger.Logger) *MessageU
 func (u *MessageUseCase) TransferMessages(ctx context.Context) {
 	messages, err := u.repository.ReceiveMessages(ctx)
 	if err != nil {
-		panic(err)
+		u.logger.Error(ctx, err)
+		os.Exit(1)
 	}
 	u.logger.Info(ctx, fmt.Sprintf("Received %d messages.", len(messages)))
 
@@ -41,13 +43,15 @@ func (u *MessageUseCase) TransferMessages(ctx context.Context) {
 	u.logger.Info(ctx, "Sending messages...")
 	sendCount, err := u.repository.SendMessages(ctx, messages)
 	if err != nil {
-		panic(err)
+		u.logger.Error(ctx, err)
+		os.Exit(1)
 	}
 	u.logger.Info(ctx, fmt.Sprintf("Messages sent: %d", *sendCount))
 
 	deleteCount, err := u.repository.DeleteMessages(ctx, messages)
 	if err != nil {
-		panic(err)
+		u.logger.Error(ctx, err)
+		os.Exit(1)
 	}
 	u.logger.Info(ctx, fmt.Sprintf("Messages deleted: %d", *deleteCount))
 
