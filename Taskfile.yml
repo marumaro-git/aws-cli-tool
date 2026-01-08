@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  default:
+    desc: list
+    cmds:
+      - task list
+    silent: true
+
+  up:
+    desc: Start localstack
+    cmds:
+      - docker compose -f docker/docker-compose.yaml up -d
+  
+  down:
+    desc: Stop localstack
+    cmds:
+      - docker compose -f docker/docker-compose.yaml down
+  
+  run:dynamodb:sdk:
+    desc: Run DynamoDB with AWS SDK
+    cmds:
+      - go run main.go dynamodb sdk
+    silent: true
+
+  run:dynamodb:guregu:
+    desc: Run DynamoDB with guregu/dynamo library
+    cmds:
+      - go run main.go dynamodb guregu
+    silent: true
+
+  # SQS関連のタスク
+  run:sqs:
+    desc: Run SQS operations
+    cmds:
+      - go run main.go sqs
+    silent: true
