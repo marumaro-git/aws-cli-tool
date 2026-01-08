@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/google/uuid"
@@ -42,6 +44,11 @@ func NewSQSClient(ctx context.Context) *SQSClient {
 	cfg := config.GetLocalStackConfig(ctx)
 	client := sqs.NewFromConfig(cfg, func(o *sqs.Options) {
 		o.BaseEndpoint = aws.String(config.LocalStackEndpoint)
+		o.Retryer = retry.NewStandard(func(o *retry.StandardOptions) {
+			o.MaxAttempts = 5
+			o.MaxBackoff = 2 * time.Second
+			o.RateLimiter = ratelimit.None
+		})
 	})
 	return &SQSClient{
 		client: client,

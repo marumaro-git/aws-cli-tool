@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -34,6 +36,11 @@ func NewDynamoDBClient(ctx context.Context) *DynamoDBClient {
 	cfg := config.GetLocalStackConfig(ctx)
 	client := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
 		o.BaseEndpoint = aws.String(config.LocalStackEndpoint)
+		o.Retryer = retry.NewStandard(func(o *retry.StandardOptions) {
+			o.MaxAttempts = 5
+			o.MaxBackoff = 2 * time.Second
+			o.RateLimiter = ratelimit.None
+		})
 	})
 	return &DynamoDBClient{
 		client: client,
