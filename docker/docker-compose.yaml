@@ -1,16 +1,22 @@
 name: aws-cli-tool  # プロジェクト名を明示的に設定
 services:
   localstack:
-    image: localstack/localstack-pro:latest
+    image: localstack/localstack:latest
     container_name: localstack
     ports:
       - "4566:4566"
-      - "27017:27017"
     environment:
-      - SERVICES=sqs,dynamodb,docdb
+      - SERVICES=sqs,dynamodb
       - SQS_ENDPOINT_STRATEGY=off
       - AWS_DEFAULT_REGION=ap-northeast-1
-      - LOCALSTACK_API_KEY=${LOCALSTACK_API_KEY}
-      - MONGO_EXTERNAL_PORT=27017
     volumes:
       - "./init:/etc/localstack/init/ready.d"
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
