@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/marumaro-git/aws-cli-tool/internal/domain/model"
@@ -12,6 +13,10 @@ import (
 type DocDBRepository interface {
 	InsertEvent(ctx context.Context, event model.EventDocument) (string, error)
 	GetEventsSorted(ctx context.Context) ([]model.EventDocument, error)
+	UpdateUserSingle(ctx context.Context, userID string, event model.EventDocument) (*model.UserState, bool, error)
+	UpdateUserBatch(ctx context.Context, userID string, events []model.EventDocument) (*model.UserState, int, error)
+	GetUser(ctx context.Context, userID string) (*model.UserState, error)
+	DeleteUser(ctx context.Context, userID string) error
 	Close(ctx context.Context) error
 }
 
@@ -88,6 +93,142 @@ func (u *DocDBUseCase) CheckEventualConsistency(ctx context.Context, maxWait tim
 	}
 
 	return fmt.Errorf("eventual consistency not achieved within %v", maxWait)
+}
+
+func (u *DocDBUseCase) UpdateUserSingle(ctx context.Context) error {
+	userID := "user_001"
+
+	// テストデータをクリーン
+	if err := u.repo.DeleteUser(ctx, userID); err != nil {
+		return err
+	}
+
+	now := time.Now()
+	events := []model.EventDocument{
+		{
+			EventType: "user_created",
+			EventTime: now,
+			Data:      map[string]interface{}{"name": "Alice", "email": "alice@example.com"},
+		},
+		{
+			EventType: "user_updated",
+			EventTime: now.Add(2 * time.Second),
+			Data:      map[string]interface{}{"name": "Alice", "email": "alice_v2@example.com"},
+		},
+		{
+			// 古いイベント（1秒前）→ スキップされるべき
+			EventType: "user_updated",
+			EventTime: now.Add(1 * time.Second),
+			Data:      map[string]interface{}{"name": "Alice", "email": "alice_stale@example.com"},
+		},
+	}
+
+	for i, event := range events {
+		user, applied, err := u.repo.UpdateUserSingle(ctx, userID, event)
+		if err != nil {
+			return err
+		}
+
+		if applied {
+			u.logger.Info(ctx, fmt.Sprintf("[Event %d] APPLIED: type=%s, event_time=%s -> user.email=%s, version=%d",
+				i+1, event.EventType, event.EventTime.Format(time.RFC3339Nano), user.Email, user.Version))
+		} else {
+			u.logger.Info(ctx, fmt.Sprintf("[Event %d] SKIPPED (stale): type=%s, event_time=%s -> current.email=%s, last_updated=%s",
+				i+1, event.EventType, event.EventTime.Format(time.RFC3339Nano), user.Email, user.LastUpdated.Format(time.RFC3339Nano)))
+		}
+	}
+
+	// 最終状態を確認
+	finalUser, err := u.repo.GetUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	u.logger.Info(ctx, fmt.Sprintf("Final state: email=%s, version=%d (stale event was correctly rejected)", finalUser.Email, finalUser.Version))
+	return nil
+}
+
+func (u *DocDBUseCase) UpdateUserBatch(ctx context.Context) error {
+	userID := "user_002"
+
+	// テストデータをクリーン
+	if err := u.repo.DeleteUser(ctx, userID); err != nil {
+		return err
+	}
+
+	now := time.Now()
+
+	// === Phase 1: 初期状態を作成 ===
+	u.logger.Info(ctx, "=== Phase 1: Creating initial state ===")
+	initialEvent := model.EventDocument{
+		EventType: "user_created",
+		EventTime: now.Add(2 * time.Second),
+		Data:      map[string]interface{}{"name": "Bob", "email": "bob_v2@example.com"},
+	}
+	_, applied, err := u.repo.UpdateUserSingle(ctx, userID, initialEvent)
+	if err != nil {
+		return err
+	}
+	if applied {
+		u.logger.Info(ctx, fmt.Sprintf("Initial state created: email=%s, last_updated=%s",
+			initialEvent.Data["email"], initialEvent.EventTime.Format(time.RFC3339Nano)))
+	}
+
+	// === Phase 2: 古いイベントと新しいイベントが混在するバッチを投入 ===
+	u.logger.Info(ctx, "=== Phase 2: Applying batch with stale + new events ===")
+	batchEvents := []model.EventDocument{
+		{
+			// 古いイベント（now+0s） → スキップされるべき
+			EventType: "user_updated",
+			EventTime: now,
+			Data:      map[string]interface{}{"name": "Bob", "email": "bob_stale_1@example.com"},
+		},
+		{
+			// 古いイベント（now+1s） → スキップされるべき
+			EventType: "user_updated",
+			EventTime: now.Add(1 * time.Second),
+			Data:      map[string]interface{}{"name": "Bob", "email": "bob_stale_2@example.com"},
+		},
+		{
+			// 新しいイベント（now+3s） → 適用されるべき
+			EventType: "user_updated",
+			EventTime: now.Add(3 * time.Second),
+			Data:      map[string]interface{}{"name": "Bob", "email": "bob_v3@example.com"},
+		},
+		{
+			// 新しいイベント（now+4s） → 適用されるべき
+			EventType: "user_updated",
+			EventTime: now.Add(4 * time.Second),
+			Data:      map[string]interface{}{"name": "Bob", "email": "bob_v4@example.com"},
+		},
+	}
+
+	u.logger.Info(ctx, "Batch events (before sort):")
+	for i, e := range batchEvents {
+		u.logger.Info(ctx, fmt.Sprintf("  [%d] event_time=%s, email=%s",
+			i+1, e.EventTime.Format(time.RFC3339Nano), e.Data["email"]))
+	}
+
+	// event_time順にソート
+	sort.Slice(batchEvents, func(i, j int) bool {
+		return batchEvents[i].EventTime.Before(batchEvents[j].EventTime)
+	})
+
+	u.logger.Info(ctx, "Batch events (after sort):")
+	for i, e := range batchEvents {
+		u.logger.Info(ctx, fmt.Sprintf("  [%d] event_time=%s, email=%s",
+			i+1, e.EventTime.Format(time.RFC3339Nano), e.Data["email"]))
+	}
+
+	user, appliedCount, err := u.repo.UpdateUserBatch(ctx, userID, batchEvents)
+	if err != nil {
+		return err
+	}
+
+	u.logger.Info(ctx, "=== Result ===")
+	u.logger.Info(ctx, fmt.Sprintf("Batch: %d applied, %d skipped (stale) out of %d total",
+		appliedCount, len(batchEvents)-appliedCount, len(batchEvents)))
+	u.logger.Info(ctx, fmt.Sprintf("Final state: email=%s, version=%d", user.Email, user.Version))
+	return nil
 }
 
 func validateEventOrder(events []model.EventDocument) bool {

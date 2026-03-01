@@ -89,9 +89,63 @@ var consistencyCmd = &cobra.Command{
 	},
 }
 
+var updateSingleCmd = &cobra.Command{
+	Use:   "update-single",
+	Short: "Single event update with Last Write Wins",
+	Long:  `Demonstrate single event update: newer events are applied, older events are rejected.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+		logger := logger.NewSlogLogger()
+
+		logger.Info(ctx, "Connecting to DocumentDB...")
+		client, err := docdb.NewDocDBClient(ctx)
+		if err != nil {
+			logger.Error(ctx, err)
+			os.Exit(1)
+		}
+		defer client.Close(ctx)
+
+		docdbUseCase := usecase.NewDocDBUseCase(client, logger)
+
+		logger.Info(ctx, "Running single event update demo (Last Write Wins)...")
+		if err := docdbUseCase.UpdateUserSingle(ctx); err != nil {
+			logger.Error(ctx, err)
+			os.Exit(1)
+		}
+	},
+}
+
+var updateBatchCmd = &cobra.Command{
+	Use:   "update-batch",
+	Short: "Batch event update with time-ordered processing",
+	Long:  `Demonstrate batch event update: events are sorted by event_time and applied in order within a transaction.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+		logger := logger.NewSlogLogger()
+
+		logger.Info(ctx, "Connecting to DocumentDB...")
+		client, err := docdb.NewDocDBClient(ctx)
+		if err != nil {
+			logger.Error(ctx, err)
+			os.Exit(1)
+		}
+		defer client.Close(ctx)
+
+		docdbUseCase := usecase.NewDocDBUseCase(client, logger)
+
+		logger.Info(ctx, "Running batch event update demo...")
+		if err := docdbUseCase.UpdateUserBatch(ctx); err != nil {
+			logger.Error(ctx, err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(docdbCmd)
 	docdbCmd.AddCommand(connectCmd)
 	docdbCmd.AddCommand(insertCmd)
 	docdbCmd.AddCommand(consistencyCmd)
+	docdbCmd.AddCommand(updateSingleCmd)
+	docdbCmd.AddCommand(updateBatchCmd)
 }

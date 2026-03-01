@@ -59,3 +59,15 @@ tasks:
     cmds:
       - go run main.go docdb consistency
     silent: true
+
+  run:docdb:update-single:
+    desc: Single event update with Last Write Wins
+    cmds:
+      - go run main.go docdb update-single
+    silent: true
+
+  run:docdb:update-batch:
+    desc: Batch event update with time-ordered processing
+    cmds:
+      - go run main.go docdb update-batch
+    silent: true
