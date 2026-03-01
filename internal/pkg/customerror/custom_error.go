@@ -5,8 +5,9 @@ import (
 )
 
 var (
-	ItemNotFound = failure.StringCode("ItemNotFound")
+	ItemNotFound      = failure.StringCode("ItemNotFound")
 	FailedSendMessage = failure.StringCode("FailedSendMessage")
+	DocDBError        = failure.StringCode("DocDBError")
 )
 
 type Error struct {

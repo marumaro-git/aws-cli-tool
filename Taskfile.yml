@@ -40,3 +40,22 @@ tasks:
     cmds:
       - go run main.go sqs
     silent: true
+
+  # DocDB関連のタスク
+  run:docdb:connect:
+    desc: Test DocumentDB connection
+    cmds:
+      - go run main.go docdb connect
+    silent: true
+
+  run:docdb:insert:
+    desc: Insert sample events into DocumentDB
+    cmds:
+      - go run main.go docdb insert
+    silent: true
+
+  run:docdb:consistency:
+    desc: Check eventual consistency in DocumentDB
+    cmds:
+      - go run main.go docdb consistency
+    silent: true

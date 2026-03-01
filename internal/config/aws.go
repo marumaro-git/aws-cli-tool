@@ -16,6 +16,8 @@ const (
 	DummyAccessKey    = "dummy_access_key"
 	DummySecretKey    = "dummy_secret_key"
 	DummySessionToken = ""
+
+	MongoDBURI = "mongodb://admin:password123@localhost:27017"
 )
 
 func GetLocalStackConfig(ctx context.Context) aws.Config {
